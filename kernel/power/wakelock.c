@@ -52,12 +52,6 @@ struct workqueue_struct *suspend_work_queue;
 struct wake_lock main_wake_lock;
 suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;
 static struct wake_lock unknown_wakeup;
-static struct wake_lock suspend_backoff_lock;
-
-#define SUSPEND_BACKOFF_THRESHOLD	10
-#define SUSPEND_BACKOFF_INTERVAL	10000
-
-static unsigned suspend_short_count;
 
 #ifdef CONFIG_WAKELOCK_STAT
 static struct wake_lock deleted_wake_locks;
