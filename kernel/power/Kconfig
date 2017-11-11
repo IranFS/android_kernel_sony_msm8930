@@ -23,7 +23,7 @@ config HAS_EARLYSUSPEND
 
 config EARLYSUSPEND
 	bool "Early suspend"
-	default y
+	default n
 	select HAS_EARLYSUSPEND
 	---help---
 	  Call early suspend handlers when the user requested sleep state
