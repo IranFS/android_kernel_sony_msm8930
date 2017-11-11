@@ -23,7 +23,6 @@ config HAS_EARLYSUSPEND
 
 config EARLYSUSPEND
 	bool "Early suspend"
-	depends on WAKELOCK
 	default y
 	select HAS_EARLYSUSPEND
 	---help---
