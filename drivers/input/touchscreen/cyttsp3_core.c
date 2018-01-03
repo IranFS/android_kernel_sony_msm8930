@@ -413,9 +413,10 @@ struct cyttsp {
 	bool ca_available;
 	bool ca_enabled;
 	#endif
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	struct early_suspend early_suspend;
+#ifdef CONFIG_FB
+	struct notifier_block fb_notif;
 #endif
+    bool is_suspended;
 #ifdef CY_USE_WATCHDOG
 	struct work_struct work;
 	struct timer_list timer;
@@ -4393,31 +4394,78 @@ cyttsp_suspend_exit:
 EXPORT_SYMBOL_GPL(cyttsp_suspend);
 #endif
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-void cyttsp_early_suspend(struct early_suspend *h)
+#ifdef CONFIG_FB
+void cyttsp_fb_suspend(struct cyttsp *ts)
 {
-	struct cyttsp *ts = container_of(h, struct cyttsp, early_suspend);
 	int retval = 0;
 	Printlog("[%s]:\n",__FUNCTION__);
-	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: EARLY SUSPEND ts=%p\n", __func__, ts);
+	
+	if (ts->is_suspended) {
+	    return;
+	}
+	
+	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: FB SUSPEND ts=%p\n", __func__, ts);
 	retval = cyttsp_suspend(ts);
 	if (retval < 0) {
-		pr_err("%s: Early suspend failed with error code %d\n",
+		pr_err("%s: FB suspend failed with error code %d\n",
 			__func__, retval);
-	}
+	}else ts->is_suspended = true;
 }
 
-void cyttsp_late_resume(struct early_suspend *h)
+void cyttsp_fb_resume(struct cyttsp *ts)
 {
-	struct cyttsp *ts = container_of(h, struct cyttsp, early_suspend);
 	int retval = 0;
 	Printlog("[%s]:\n",__FUNCTION__);
+	
+	if (!ts->is_suspended) {
+	    return;
+	}
+	
 	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: LATE RESUME ts=%p\n", __func__, ts);
 	retval = cyttsp_resume(ts);
 	if (retval < 0) {
 		pr_err("%s: Late resume failed with error code %d\n",
 			__func__, retval);
+	} else ts->is_suspended = false;
+	
+	
+}
+
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct cyttsp *ts = container_of(self, struct cyttsp, fb_notif);
+
+	if (evdata && evdata->data && ts) {
+		if (event == FB_EVENT_BLANK) {
+			blank = evdata->data;
+			if (*blank == FB_BLANK_UNBLANK)
+				cyttsp_fb_resume(ts);
+			else if (*blank == FB_BLANK_POWERDOWN)
+				cyttsp_fb_suspend(ts);
+		}
 	}
+
+	return 0;
+}
+
+
+void cyttsp_setup_fb_suspend(struct cyttsp *ts)
+{
+	int retval = 0;
+	struct device *dev = &ts->dev;
+
+	ts->fb_notif.notifier_call = fb_notifier_callback;
+	retval = fb_register_client(&ts->fb_notif);
+	if (retval) {
+		dev_err(dev, "%s: Failed to register fb_notifier\n",
+			__func__);
+		return;
+	}
+
+	dev_info(dev, "%s: Registered fb_notifier\n", __func__);
 }
 #endif
 
@@ -4431,8 +4479,8 @@ void cyttsp_core_release(void *handle)
 		goto cyttsp_core_release_exit;
 	}
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&ts->early_suspend);
+#ifdef CONFIG_FB
+	fb_unregister_client(&ts->fb_notif);
 #endif
 	cyttsp_ldr_free(ts);
 	/* mutex must not be locked when destroy is called */
@@ -5009,10 +5057,7 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 	cyttsp_ldr_init(ts);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	ts->early_suspend.suspend = cyttsp_early_suspend;
-	ts->early_suspend.resume = cyttsp_late_resume;
-	register_early_suspend(&ts->early_suspend);
+	cyttsp_setup_fb_suspend(ts);
 #endif
 
 		retval = cyttsp_open(input_device);

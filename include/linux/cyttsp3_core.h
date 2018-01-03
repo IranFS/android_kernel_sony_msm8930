@@ -34,8 +34,9 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
+#ifdef CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
 #endif
 
 #define CY_I2C_NAME                 "cyttsp3-i2c"
