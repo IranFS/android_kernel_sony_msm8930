@@ -265,15 +265,6 @@ static inline void suspend_thaw_processes(void)
 }
 #endif
 
-static inline void suspend_sys_sync_queue(void) {}
-static inline int suspend_sys_sync_wait(void) { return 0; }
-
-#ifdef CONFIG_EARLYSUSPEND
-/* kernel/power/earlysuspend.c */
-void request_suspend_state(suspend_state_t state);
-suspend_state_t get_suspend_state(void);
-#endif
-
 #ifdef CONFIG_PM_AUTOSLEEP
 
 /* kernel/power/autosleep.c */
